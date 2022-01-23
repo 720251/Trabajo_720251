@@ -1,4 +1,3 @@
-#include <ArduinoJson.h>
 #include "time.h"
 #include <WiFi.h>
 #include <WiFiClient.h>
@@ -6,8 +5,6 @@
 #include <MPU9250_asukiaaa.h>
 #include <Wire.h>
 
-
- 
 #define SDA_PIN 21
 #define SCL_PIN 22
 
@@ -36,14 +33,20 @@ const char* password   = "25208230t";
 const char* ntpServer = "europe.pool.ntp.org";
 const long  gmtOffset_sec = 3600;
 const int   daylightOffset_sec = 0;
+struct tm timeinfo;
 
+void printLocalTime() {
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Hora no obtenida");
+    return;
+  }
+}
+ //VARIABLES PARA MILLIS
 int boton = 0;
 unsigned long int actualmillis = 0;
 unsigned long int botonmillis = 0;
 unsigned long int tiempoMuestreo = 14000;
 unsigned long int tiempoActivacion = 27000;
-
-struct tm timeinfo;
 
 
 //FTP
@@ -57,14 +60,7 @@ int numRegistros = 0;
 char nombreChar[25];
 char infoChar[75000];
 
-void printLocalTime() {
-  if (!getLocalTime(&timeinfo)) {
-    Serial.println("Hora no obtenida");
-    return;
-  }
-  //Serial.println(&timeinfo, "%A, %d %B %Y %H:%M:%S");
-}
-int contador = 0;
+
 void almacenaDatos() {
 
   //ftp.InitFile("Type A");
@@ -89,25 +85,20 @@ void mandaFichero() {
 }
 
 void setup() {
-
   Wire.begin(SDA_PIN, SCL_PIN);
-
   sensor.setWire(&Wire);
   sensor.beginAccel();
   sensor.beginGyro();
-
   Serial.begin(115200);
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 1000, true);
   timerAlarmEnable(timer);
-
   pinMode(12, OUTPUT);
   pinMode(14, INPUT);
-
   //INICIALIZAMOS EL WIFI
   WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false); // Desactiva la suspensión de wifi en modo STA para mejorar la velocidad de respuesta
+  WiFi.setSleep(false);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -118,7 +109,6 @@ void setup() {
   Serial.println(WiFi.localIP());
   //CONFIGURAMOS LA FECHA Y LA HORA
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-
 }
 
 void leeSensor() {
@@ -160,21 +150,14 @@ void leeSensor() {
       digitalWrite(12, LOW);
       contadorLed = 0;
       actualmillis = millis();
-      //      ftp.CloseFile();
-      //      ftp.CloseConnection();
       boton = 0;
 
     }
   }
 }
 
-
 void loop() {
   actualmillis = millis();
-  //    Serial.println(actualmillis);
-  //    Serial.println(botonmillis);
-  //    Serial.print(boton);
-  //    Serial.println("----------------");
   printLocalTime();
   leeSensor();
 

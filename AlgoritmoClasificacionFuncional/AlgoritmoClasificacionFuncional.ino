@@ -1,11 +1,9 @@
 #include "time.h"
 #include <WiFi.h>
 #include <WiFiClient.h>
-#include <ESP32_FTPClient.h>
 #include <MPU9250_asukiaaa.h>
 #include <Wire.h>
-
-//#include "EspMQTTClient.h"
+#include "EspMQTTClient.h"
 
 #define SDA_PIN 21
 #define SCL_PIN 22
@@ -28,26 +26,26 @@ const char* password   = "SRULAGD6RHFQ4M5K";
 //const char* ssid       = "MiA2";
 //const char* password   = "25208230t";
 
-//EspMQTTClient client(
-//  "MiA2",
-//  "25208230t",
-//  "test.mosquito.org",
-//  "Sensor",
-//  883
-//  );
+EspMQTTClient client(
+  ssid,
+  password,
+  "broker.emqx.io",
+  "720251",
+  1883
+);
 
 //MARCA TEMPORAL
-const char* ntpServer = "europe.pool.ntp.org";
+const char* ntpServer = "es.pool.ntp.org";
 const long  gmtOffset_sec = 3600;
 const int   daylightOffset_sec = 0;
 struct tm timeinfo;
 
-//FTP
-char ftp_server[] = "155.210.150.77";
-char ftp_user[]   = "rsense";
-char ftp_pass[]   = "rsense";
-ESP32_FTPClient ftp (ftp_server, ftp_user, ftp_pass, 5000, 2);
-
+void printLocalTime() {
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Hora no obtenida");
+    return;
+  }
+}
 
 int valorInicial, valorFinal;
 
@@ -81,32 +79,9 @@ int aux = 0;
 int aux2 = 0;
 int ventanaIniciada = 0;
 
-String nombreString, infoString, parameter;
+String parameter;
+String BotonGuardado;
 String movimiento;
-int numRegistros = 0;
-char nombreChar[25];
-char infoChar[75000];
-
-void almacenaDatos() {
-
-  //ftp.InitFile("Type A");
-  nombreString = String(timeinfo.tm_mon) + String(timeinfo.tm_mday) + String(timeinfo.tm_hour) + String(timeinfo.tm_min) + ".csv";
-  nombreString.toCharArray(nombreChar, 20);
-  parameter = String(String(movimiento) + ";" + String(timeinfo.tm_mon) + ";" + String(timeinfo.tm_mday) + ";" +
-                     String(timeinfo.tm_hour) + ";" + String(timeinfo.tm_min) + ";" + String(timeinfo.tm_sec) + "\n" );
-  infoString.concat(parameter);
-  infoString.toCharArray(infoChar, 75000);
-}
-
-void mandaFichero() {
-  ftp.OpenConnection();
-  ftp.ChangeWorkDir("/rsense/720251_trabajo");
-  ftp.InitFile("Type A");
-  ftp.NewFile(nombreChar);
-  ftp.Write(infoChar);
-  ftp.CloseFile();
-  ftp.CloseConnection();
-}
 
 void muestreo() {
   sensor.accelUpdate();
@@ -225,8 +200,8 @@ void clasificacion() {
       Serial.println("Pase interior");
     }
     else {
-      movimiento = "Pase inconcluyente";
-      Serial.println("Pase inconcluyente");
+      movimiento = "Pase";
+      Serial.println("Pase");
     }
   }
   else if ((mediaA > 1.95) && (vEficazA > 3.8)) {
@@ -240,41 +215,33 @@ void clasificacion() {
       Serial.println("Chute puntera");
     }
     else {
-      movimiento = "Chute inconcluyente";
-      Serial.println("Chute inconcluyente");
+      movimiento = "Chute";
+      Serial.println("Chute");
     }
   }
   else {
-    //movimiento = "Movimiento inconcluyente";
-    Serial.println("Movimiento inconcluyente");
+    movimiento = "";
+    //Serial.println("Movimiento inconcluyente");
   }
-  //almacenaDatos();
   ///ENVIO LA INFORMACIÓN AL MOVIL
-  //client.publish("Sensor", movimiento);
+  parameter = String(String(movimiento) + ";" + String(timeinfo.tm_mday) + "/" + String(timeinfo.tm_mon + 1 ) + "/" + String(timeinfo.tm_year) + "-" +
+                     String(timeinfo.tm_hour) + ":" + String(timeinfo.tm_min) + ":" + String(timeinfo.tm_sec) + "\n" );
+  client.publish("Sensor/mensaje", parameter);
   ///ENVIO LA INFORMACIÓN AL MOVIL
 }
 
 
-
 void setup() {
   Wire.begin(SDA_PIN, SCL_PIN);
-
   sensor.setWire(&Wire);
   sensor.beginAccel();
   sensor.beginGyro();
-
   Serial.begin(115200);
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &onTimer, true);
   timerAlarmWrite(timer, 1000, true);
   timerAlarmEnable(timer);
-
-  pinMode(12, OUTPUT);
-  pinMode(14, INPUT);
-
   //INICIALIZAMOS EL WIFI
-  WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false); // Desactiva la suspensión de wifi en modo STA para mejorar la velocidad de respuesta
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -286,48 +253,55 @@ void setup() {
   //CONFIGURAMOS LA FECHA Y LA HORA
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
-  //  client.enableDebuggingMessages();
-  //  client.enableLastWillMessage("Sensor/lastwill", "I am going offline");
+  client.enableDebuggingMessages();
+  client.enableLastWillMessage("Sensor/lastwill", "I am going offline");
 
 }
 
-void printLocalTime() {
-  if (!getLocalTime(&timeinfo)) {
-    Serial.println("Hora no obtenida");
-    return;
+void Boton(const String &BotonGuardado)
+{
+  if (BotonGuardado == "true") {
+    boton = 1;
   }
+  else {
+    boton = 0;
+  }
+  Serial.println(boton);
+}
+
+void onConnectionEstablished() // Funcion que se ejecuta sólo una vez al conectarse al broker
+{
+  client.subscribe("Sensor/boton", Boton);
 }
 
 void loop() {
   printLocalTime();
-  if (interruptCounter > 0) {
-    portENTER_CRITICAL(&timerMux);
-    interruptCounter--;
-    portEXIT_CRITICAL(&timerMux);
-    if (digitalRead(14) == LOW && boton == 0) {
-      boton = 1;
-      Serial.println(boton);
-    }
-    if (boton == 1) {
-      contadorMuestreo++;
-      contadorClasificacion++;
-      if (contadorMuestreo == periodoMuestreo) {
-        muestreo();
-        contadorMuestreo = 0;
-      }
-      //Serial.println(aZ[i]);
-      ventana();
-      if (actualmillis - ventanamillis <= periodoventana) {
-        analisis();
-        if(contadorClasificacion == periodoClasificacion) {
-          clasificacion();
-          contadorClasificacion = 0;
+  client.loop();
+  if (client.isConnected() == true) {
+    if (interruptCounter > 0) {
+      portENTER_CRITICAL(&timerMux);
+      interruptCounter--;
+      portEXIT_CRITICAL(&timerMux);
+      if (boton == 1) {
+        contadorMuestreo++;
+        contadorClasificacion++;
+        if (contadorMuestreo == periodoMuestreo) {
+          muestreo();
+          contadorMuestreo = 0;
         }
-        
-      }
-      if (actualmillis - ventanamillis > periodoventana) {
-        actualmillis = millis();
-        ventanaIniciada = 0;
+        ventana();
+        if (actualmillis - ventanamillis <= periodoventana) {
+          analisis();
+          if (contadorClasificacion == periodoClasificacion) {
+            clasificacion();
+            contadorClasificacion = 0;
+          }
+
+        }
+        if (actualmillis - ventanamillis > periodoventana) {
+          actualmillis = millis();
+          ventanaIniciada = 0;
+        }
       }
     }
   }
