@@ -6,6 +6,7 @@ Para ello, se utiliza un sensor inercial y un sistema de adquisición de datos q
 Para poder generar un algoritmo capaz de distinguir entre diferentes movimientos específicos del futbol durante el choque con el balón es necesario generar un algoritmo previo en el que se recoja la información de los diferentes sensores que se van a integrar para su posterior procesamiento y generación del clasificador.
 
 -----------------RECOGIDA DE DATOS----------------
+
 Este algoritmo previo se encuentra en RecogidaDatos y sigue el principio de funcionamiento de la máquina de estados que aparece en RecogidaDatos.png
 
 La máquina de estados para la experimentación se define de forma que, una vez alimentado, se espera una acción, cuando se detecta un pulso en el pin 14, se pone una variable denominada botón a 1, y se guarda el valor de millis() en ese instante. El tiempo de activación será de 27 segundos. Siempre que la diferencia entre el millis y el botón millis sea menor a este tiempo, habrá unos contadores, encargados de las interrupciones que irán aumentando. Se toman las medidas cada 10 ms y se llama a la función mandaFichero() a los 14 segundos. Cuando la diferencia sea mayor, se pondrán los contadores y la variable botón a cero, se apagará el led se finalizará la conexión FTP.
@@ -93,4 +94,3 @@ Cuando la diferencia entre los millis supere el periodo de la ventana, actualmil
 Para el diseño de la app, se ha descargado la aplicación MQTT Dash (IoT, Smart Home) y se ha configurado de forma que, se da el nombre que queremos, utilizando un broker público para conectarse a el y utilizarlo para enviar la información, el mismo que en el algoritmo. Se crea un texto con el topic “Sensor/mensaje” tal y como se nombra en la línea 229 del algoritmo, para leer lo que se publica en ese topic. Y se crea un botón con el topic “Sensor/boton” tal y como se nombra en la línea 274 del algoritmo, para enviar a la suscripción lo que hay en ese topic.
 
 Finalmente, se verifica y se comprueba que el algoritmo funciona correctamente, recibiendo los mensajes de pase con el interior o pase con el exterior si entra dentro de las especificaciones, o pase si no distingue entre que tipo de pase es, y de chute con el empeine o chute con la puntera si entra dentro de especificaciones, o chute si no distingue entre el tipo de chute.
-
