@@ -98,7 +98,7 @@ void muestreo() {
   }
 }
 void ventana() {
-  if ((aZ[i] == 4.0 || aZ[i] == -4.0) && ventanaIniciada == 0) {
+  if ((aZ[i] >= 10.0 || aZ[i] <= -10.0) && ventanaIniciada == 0) {
     int j = i;
     ventanaIniciada = 1;
     ventanamillis = millis();
